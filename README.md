@@ -1,6 +1,19 @@
 # ISW_2025_4K3_G14
 Este repositorio será usado por los integrantes del grupo a lo largo del cursado de la materia Ingeniería y Calidad de Software en el año 2025 para gestionar los ítems a utilizar durante el transcurso del cuatrimestre.
 
+## Integrantes
+- Riera, Martin Fernando - 91746
+- ⁠González Bernahola, Alessandro Tomas - 92950
+- ⁠Sangenis Libra, Valentino - 90153
+- ⁠Magris, Santino Alejandro - 91999
+- ⁠Haro Monforte, Tomás - 83204
+- Caliva, Ariel Enrique - 69777
+- ⁠Patriarca, Ignacio - 91025
+- Simes, Juan Mateo - 96074
+- Dilewski, Ignacio Nicolás - 97662
+
+## Estructura del repositorio
+
 ```
 ISW_2025_4K3_G14
 ├── Material de Estudio
