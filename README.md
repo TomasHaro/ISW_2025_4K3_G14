@@ -12,6 +12,8 @@ Este repositorio será usado por los integrantes del grupo a lo largo del cursad
 - Simes, Juan Mateo - 96074
 - Dilewski, Ignacio Nicolás - 97662
 
+## Estructura del repositorio
+
 ```
 ISW_2025_4K3_G14
 ├── Material de Estudio
