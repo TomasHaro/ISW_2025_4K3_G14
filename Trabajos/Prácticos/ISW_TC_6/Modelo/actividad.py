@@ -1,17 +1,32 @@
+# models.py
+from typing import List, Dict, Tuple
+from Modelo.participante import Participante
+
 class Actividad:
-    def __init__(self, nombre, horarios, cupos_por_horario, requiere_talle):
+    def __init__(self, nombre: str, horarios: List[str], cupos_por_horario: Dict[str, int], requiere_talle: bool):
         self.nombre = nombre
         self.horarios = horarios
-        self.cupos_por_horario = cupos_por_horario
+        self.cupos_por_horario = cupos_por_horario.copy()
         self.requiere_talle = requiere_talle
-        self.inscripciones = []  # lista de visitantes inscriptos
+        # inscripciones será lista de tuplas (horario, participante)
+        self.inscripciones: List[Tuple[str, Participante]] = []
 
-    def tiene_cupo(self, horario):
-        """Devuelve True si hay cupos disponibles para el horario dado."""
-        return self.cupos_por_horario.get(horario, 0) > 0
+    def tiene_cupo(self, horario: str, cantidad: int = 1) -> bool:
+        """Devuelve True si hay al menos "cantidad" cupos para el horario dado."""
+        return self.cupos_por_horario.get(horario, 0) >= cantidad
 
-    def registrar_inscripcion(self, horario, visitante):
-        """Disminuye el cupo y registra al visitante."""
-        if self.tiene_cupo(horario):
-            self.cupos_por_horario[horario] -= 1
-            self.inscripciones.append((horario, visitante))
+    def registrar_inscripciones(self, horario: str, visitantes: List[Participante]) -> bool:
+        """
+        Registra varias inscripciones de forma atómica:
+        - Si no hay cupo suficiente devuelve False y no cambia estado.
+        - Si hay cupo suficiente decrementa y registra, devuelve True.
+        """
+        cantidad = len(visitantes)
+        disponibles = self.cupos_por_horario.get(horario, 0)
+        if disponibles < cantidad:
+            return False
+        # decrementar y agregar
+        self.cupos_por_horario[horario] = disponibles - cantidad
+        for v in visitantes:
+            self.inscripciones.append((horario, v))
+        return True

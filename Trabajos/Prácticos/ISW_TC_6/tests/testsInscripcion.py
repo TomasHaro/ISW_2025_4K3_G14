@@ -30,7 +30,7 @@ class TestInscripcionActividad(unittest.TestCase):
             nombre_actividad="Tirolesa",
             horario="10:00",
             participantes=[participante],
-            aceptar_terminos=True  # 👈 Importante
+            aceptar_terminos=True  
         )
 
         # Verificamos el resultado
