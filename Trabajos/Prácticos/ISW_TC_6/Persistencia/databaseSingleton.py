@@ -1,38 +1,42 @@
+# Servicio/databaseSingleton.py
 import sqlite3
 from sqlite3 import Error
+from typing import Optional
 import os
 
 class DatabaseSingleton:
-    _instance = None
+    """
+    Singleton por ruta de DB. Llamar DatabaseSingleton(db_path) devuelve la instancia única para ese db_path.
+    Útil para tests: DatabaseSingleton(':memory:') crea/usa una DB en memoria separada.
+    """
+    _instances = {}
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super(DatabaseSingleton, cls).__new__(cls)
-            cls._instance._initialize_connection()
-        return cls._instance
+    def __new__(cls, db_path: str = "ecoharmony.db"):
+        if db_path not in cls._instances:
+            inst = super().__new__(cls)
+            cls._instances[db_path] = inst
+            inst._db_path = db_path
+            inst._initialize_connection()
+        return cls._instances[db_path]
 
     def _initialize_connection(self):
         try:
-            # Conexión a la base de datos
-            self.connection = sqlite3.connect("ecoharmony.db")
+            self.connection = sqlite3.connect(self._db_path, timeout=30, check_same_thread=False)
+            self.connection.row_factory = sqlite3.Row
             self.cursor = self.connection.cursor()
-            print("Conexión a SQLite establecida")
-            
-            # Inicializar la base de datos si es necesario
+            # Si preferís leer un archivo esquema.sql, podés hacerlo aquí. Por simplicidad, creamos tablas programáticamente.
             self._initialize_database()
-            
+            # print(f"Conexión a SQLite establecida ({self._db_path})")
         except Error as e:
-            print(f"Error al conectar a la base de datos: {e}")
+            raise RuntimeError(f"Error al conectar a la base de datos: {e}")
 
     def _initialize_database(self):
-        """Crea las tablas si no existen"""
         try:
-            # Ajusta las tablas a tu modelo de EcoHarmony Park
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS actividad (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    nombre TEXT NOT NULL,
-                    requiere_talle BOOLEAN NOT NULL
+                    nombre TEXT NOT NULL UNIQUE,
+                    requiere_talle INTEGER NOT NULL
                 )
             """)
             self.cursor.execute("""
@@ -48,7 +52,7 @@ class DatabaseSingleton:
                 CREATE TABLE IF NOT EXISTS participante (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nombre TEXT NOT NULL,
-                    dni TEXT NOT NULL,
+                    dni TEXT NOT NULL UNIQUE,
                     edad INTEGER NOT NULL,
                     talle TEXT
                 )
@@ -58,36 +62,37 @@ class DatabaseSingleton:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     participante_id INTEGER NOT NULL,
                     horario_id INTEGER NOT NULL,
-                    acepta_terminos BOOLEAN NOT NULL,
+                    acepta_terminos INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(participante_id) REFERENCES participante(id),
                     FOREIGN KEY(horario_id) REFERENCES horario(id)
                 )
             """)
             self.connection.commit()
-            print("Tablas creadas/verificadas correctamente")
         except Error as e:
-            print(f"Error al crear/verificar las tablas: {e}")
+            raise RuntimeError(f"Error al crear/verificar las tablas: {e}")
 
-    def execute_query(self, query, parameters=()):
+    # helpers
+    def execute_query(self, query: str, parameters: tuple = ()):
         try:
-            self.cursor.execute(query, parameters)
+            cur = self.connection.cursor()
+            cur.execute(query, parameters)
             self.connection.commit()
+            return cur
         except Error as e:
-            print(f"Error al ejecutar la consulta: {e}")
+            raise
 
-    def fetch_query(self, query, parameters=()):
+    def fetch_query(self, query: str, parameters: tuple = ()):
         try:
-            self.cursor.execute(query, parameters)
-            return self.cursor.fetchall()
+            cur = self.connection.cursor()
+            cur.execute(query, parameters)
+            return cur.fetchall()
         except Error as e:
-            print(f"Error al obtener datos: {e}")
-            return None
+            raise
 
     def close_connection(self):
-        if self.connection:
+        if getattr(self, "connection", None):
             self.connection.close()
-            self.connection = None
-            print("Conexión cerrada")
-
-if __name__ == "__main__":
-    db = DatabaseSingleton()
+            # opcional: eliminar instancia del mapa
+            if self._db_path in DatabaseSingleton._instances:
+                del DatabaseSingleton._instances[self._db_path]
