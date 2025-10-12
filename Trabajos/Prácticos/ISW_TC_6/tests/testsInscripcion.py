@@ -67,6 +67,39 @@ class TestInscripcionActividad(unittest.TestCase):
         self.assertEqual(actividad.cupos_por_horario["15:00"], 0)
         self.assertEqual(len(actividad.inscripciones), 0)
 
+    # Probar inscribirse a una actividad sin ingresar talle de vestimenta porque la actividad no lo requiere
+    def test_inscripcion_exitosa_sin_talle_cuando_no_se_requiere(self):
+        # Configuramos una actividad que NO requiere talle
+        actividad = Actividad(
+            nombre="Jardinería",
+            horarios=["11:00"],
+            cupos_por_horario={"11:00": 3},
+            requiere_talle=False
+        )
+
+        servicio = InscripcionServicio([actividad])
+
+        # Creamos un participante SIN talle
+        participante = Participante(
+            nombre="Laura",
+            dni="22222222",
+            edad=28,
+            talle=None
+        )
+
+        # Intentamos inscribir al participante
+        resultado = servicio.inscribir(
+            nombre_actividad="Jardinería",
+            horario="11:00",
+            participantes=[participante],
+            aceptar_terminos=True
+        )
+
+        self.assertTrue(resultado["exito"])
+        self.assertEqual(resultado["mensaje"], "Inscripción realizada con éxito.")
+        self.assertEqual(actividad.cupos_por_horario["11:00"], 2)  # Se reduce el cupo
+        self.assertEqual(len(actividad.inscripciones), 1)
+
 if __name__ == '__main__':
     unittest.main()
 
