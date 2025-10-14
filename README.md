@@ -32,7 +32,7 @@ ISW_2025_4K3_G14
 |-------------|------------------------------------------|-----------------|----------|
 | Programa de Asignatura | ISW_programa_2025.pdf         | Documento       | ISW_2025_4K3_G14\Programa\
 | Guias          | ISW_\<NombreDocumento\>.pdf                | Recurso de estudio       |ISW_2025_4K3_G14\Material de estudio\Guias\
-| Presentaciones | ISW_PR_UN\<NumeroDePresentación\>_\<Tema\>.pdf       | Recurso de estudio | ISW_2025_4K3_G14\Material de estudio\Presentaciones\
+| Presentaciones | ISW_PR_\<NumeroDePresentación\>_\<Tema\>.pdf       | Recurso de estudio | ISW_2025_4K3_G14\Material de estudio\Presentaciones\
 | Templates      | ISW_Template_\<Tema\>.\<docx \| xlsx\> | Recurso de estudio |  ISW_2025_4K3_G14\Templates\
 | Trabajos Conceptuales   | ISW_TC_\<NumeroDeTC\>_\<NombreTC\>.pdf   | Recurso de realizacion propia|  ISW_2025_4K3_G14\Trabajos\Conceptuales\
 | Trabajos Prácticos  | ISW_TP_\<NumeroDeTP\>_\<NombreTC\>.\<extensión\>      | Recurso de realizacion propia         |  ISW_2025_4K3_G14\Trabajos\Prácticos\
