@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+import re
 from Persistencia.databaseSingleton import DatabaseSingleton
 from Persistencia.actividadRepository import ActividadRepo
 from Persistencia.horarioRepository import HorarioRepo
@@ -14,9 +15,19 @@ class InscripcionService:
         self.participante_repo = ParticipanteRepo(self.db)
         self.inscripcion_repo = InscripcionRepo(self.db)
 
+    # --- VALIDACIONES ---
     def _validar_participante_basico(self, p: Participante) -> bool:
-        return bool(getattr(p, "nombre", None) and getattr(p, "dni", None) and getattr(p, "edad", None))
+        return bool(p.nombre and p.dni and p.edad)
 
+    def _nombre_valido(self, nombre: str) -> bool:
+        """No permite números ni símbolos, solo letras (y espacios)"""
+        return bool(re.fullmatch(r"[A-Za-zÁÉÍÓÚáéíóúÑñ ]+", nombre.strip()))
+
+    def _dni_valido(self, dni: str) -> bool:
+        """Solo números, sin espacios ni letras"""
+        return dni.isdigit()
+
+    # --- MÉTODO PRINCIPAL ---
     def inscribir(self, nombre_actividad: str, horario: str, participantes: List[Participante], aceptar_terminos: bool) -> Dict[str, Any]:
         act = self.actividad_repo.obtener_por_nombre(nombre_actividad)
         if not act:
@@ -33,8 +44,19 @@ class InscripcionService:
             return {"exito": False, "mensaje": "Debe indicar al menos un participante."}
 
         for p in participantes:
+            # Validaciones básicas
             if not self._validar_participante_basico(p):
                 return {"exito": False, "mensaje": "Datos de participante incompletos."}
+            
+            # Validar nombre sin números
+            if not self._nombre_valido(p.nombre):
+                return {"exito": False, "mensaje": f"El nombre '{p.nombre}' no puede contener números ni símbolos."}
+
+            # Validar DNI solo numérico
+            if not self._dni_valido(p.dni):
+                return {"exito": False, "mensaje": f"El DNI '{p.dni}' debe contener solo números."}
+
+            # Validar talle si la actividad lo requiere
             if act["requiere_talle"] and not getattr(p, "talle", None):
                 return {"exito": False, "mensaje": "Talle requerido para la actividad."}
 
