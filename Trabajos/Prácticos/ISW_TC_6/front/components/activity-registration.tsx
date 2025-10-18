@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,65 +12,21 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Clock, Users, AlertCircle, CheckCircle2, Leaf } from "lucide-react"
 
-// Mock data - replace with your backend API calls
-const activities = [
-  {
-    id: "tirolesa",
-    name: "Tirolesa",
-    description: "Deslízate por las copas de los árboles en una aventura emocionante",
-    requiresClothingSize: true,
-    availableSlots: [
-      { time: "09:00", available: 8 },
-      { time: "11:00", available: 5 },
-      { time: "14:00", available: 0 },
-      { time: "16:00", available: 12 },
-    ],
-    terms:
-      "Los participantes deben tener al menos 12 años y pesar menos de 120kg. Se requiere calzado cerrado y ropa cómoda. El equipo de seguridad será proporcionado por el parque.",
-  },
-  {
-    id: "safari",
-    name: "Safari",
-    description: "Recorre el parque en vehículo y conoce a nuestros animales de cerca",
-    requiresClothingSize: false,
-    availableSlots: [
-      { time: "10:00", available: 15 },
-      { time: "12:00", available: 8 },
-      { time: "15:00", available: 10 },
-      { time: "17:00", available: 6 },
-    ],
-    terms:
-      "No se permite alimentar a los animales. Los niños menores de 5 años deben ir acompañados de un adulto. Se recomienda llevar protector solar y sombrero.",
-  },
-  {
-    id: "palestra",
-    name: "Palestra",
-    description: "Desafía tus habilidades en nuestro muro de escalada natural",
-    requiresClothingSize: true,
-    availableSlots: [
-      { time: "09:30", available: 6 },
-      { time: "11:30", available: 4 },
-      { time: "14:30", available: 7 },
-      { time: "16:30", available: 0 },
-    ],
-    terms:
-      "Edad mínima 10 años. Se proporcionará todo el equipo de seguridad. Los participantes deben firmar un formulario de consentimiento. No se permite escalar con objetos sueltos.",
-  },
-  {
-    id: "jardineria",
-    name: "Jardinería",
-    description: "Aprende sobre plantas nativas y ayuda en nuestro jardín botánico",
-    requiresClothingSize: false,
-    availableSlots: [
-      { time: "08:00", available: 20 },
-      { time: "10:30", available: 15 },
-      { time: "13:00", available: 18 },
-      { time: "15:30", available: 12 },
-    ],
-    terms:
-      "Actividad apta para todas las edades. Se recomienda usar ropa que pueda ensuciarse. Se proporcionarán guantes y herramientas. Los niños menores de 8 años deben estar acompañados.",
-  },
-]
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api"
+
+type ApiActivity = {
+  id: number
+  nombre: string
+  requiere_talle: boolean
+  descripcion?: string
+  terms?: string
+}
+
+type ApiSlot = {
+  id: number
+  hora: string
+  cupos: number
+}
 
 interface Participant {
   name: string
@@ -81,20 +37,95 @@ interface Participant {
 
 export function ActivityRegistration() {
   const [step, setStep] = useState(1)
+  const [activities, setActivities] = useState<ApiActivity[]>([])
+  const [slotsByActivity, setSlotsByActivity] = useState<Record<string, ApiSlot[]>>({})
+  const [loadingActivities, setLoadingActivities] = useState(false)
+  const [loadingSlots, setLoadingSlots] = useState<Record<string, boolean>>({})
   const [selectedActivity, setSelectedActivity] = useState<string>("")
   const [selectedTime, setSelectedTime] = useState<string>("")
   const [participantCount, setParticipantCount] = useState<string>("1")
   const [participants, setParticipants] = useState<Participant[]>([{ name: "", dni: "", age: "", clothingSize: "" }])
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const currentActivity = activities.find((a) => a.id === selectedActivity)
+  // fetch activities on mount
+  useEffect(() => {
+    async function fetchActivities() {
+      setLoadingActivities(true)
+      setError(null)
+      try {
+        const res = await fetch(`${API_BASE}/actividades`)
+        if (!res.ok) throw new Error(`Error ${res.status}`)
+        const data: ApiActivity[] = await res.json()
+        setActivities(data)
+
+        // optional: fetch slots for each activity in parallel to show availability on step 1
+        const slotsPromises = data.map(async (a) => {
+          try {
+            const r = await fetch(`${API_BASE}/actividades/${a.id}/horarios`)
+            if (!r.ok) return { id: a.id, slots: [] as ApiSlot[] }
+            const s: ApiSlot[] = await r.json()
+            return { id: a.id, slots: s }
+          } catch {
+            return { id: a.id, slots: [] as ApiSlot[] }
+          }
+        })
+
+        const slotsResults = await Promise.all(slotsPromises)
+        const map: Record<string, ApiSlot[]> = {}
+        slotsResults.forEach((sr) => {
+          map[String(sr.id)] = sr.slots
+        })
+        setSlotsByActivity(map)
+      } catch (e: any) {
+        console.error(e)
+        setError("No se pudieron cargar las actividades. Reintentá más tarde.")
+      } finally {
+        setLoadingActivities(false)
+      }
+    }
+    fetchActivities()
+  }, [])
+
+  // helper to shape data the UI expects
+  const uiActivities = activities.map((a) => {
+    const slots = slotsByActivity[String(a.id)] || []
+    return {
+      id: String(a.id),
+      name: a.nombre,
+      description: a.descripcion || "Descripción no disponible",
+      requiresClothingSize: a.requiere_talle,
+      availableSlots: slots.map((s) => ({ time: s.hora, available: s.cupos, slotId: s.id })),
+      terms: a.terms || a.descripcion || "No hay condiciones publicadas.",
+    }
+  })
+
+  const currentActivity = uiActivities.find((a) => a.id === selectedActivity)
   const selectedSlot = currentActivity?.availableSlots.find((s) => s.time === selectedTime)
 
-  const handleActivitySelect = (activityId: string) => {
+  // select activity and fetch slots if not already loaded
+  const handleActivitySelect = async (activityId: string) => {
     setSelectedActivity(activityId)
     setSelectedTime("")
     setStep(2)
+    setError(null)
+
+    if (!slotsByActivity[activityId]) {
+      setLoadingSlots((prev) => ({ ...prev, [activityId]: true }))
+      try {
+        const res = await fetch(`${API_BASE}/actividades/${activityId}/horarios`)
+        if (!res.ok) throw new Error(`Error ${res.status}`)
+        const data: ApiSlot[] = await res.json()
+        setSlotsByActivity((prev) => ({ ...prev, [activityId]: data }))
+      } catch (e) {
+        console.error(e)
+        setError("No se pudieron cargar los horarios para la actividad seleccionada.")
+      } finally {
+        setLoadingSlots((prev) => ({ ...prev, [activityId]: false }))
+      }
+    }
   }
 
   const handleTimeSelect = (time: string) => {
@@ -103,7 +134,7 @@ export function ActivityRegistration() {
 
   const handleParticipantCountChange = (count: string) => {
     const numCount = Number.parseInt(count) || 1
-    setParticipantCount(count)
+    setParticipantCount(String(numCount))
 
     const newParticipants = Array.from(
       { length: numCount },
@@ -118,27 +149,69 @@ export function ActivityRegistration() {
     setParticipants(newParticipants)
   }
 
-  const canProceedToStep3 = selectedActivity && selectedTime && selectedSlot && selectedSlot.available > 0
+  const canProceedToStep3 = !!selectedActivity && !!selectedTime && !!selectedSlot && selectedSlot.available > 0
 
   const canSubmit = () => {
     if (!termsAccepted) return false
+    if (!currentActivity) return false
 
     return participants.every((p) => {
-      const basicFieldsFilled = p.name && p.dni && p.age
+      const basicFieldsFilled = Boolean(p.name && p.dni && p.age)
       if (!currentActivity?.requiresClothingSize) return basicFieldsFilled
-      return basicFieldsFilled && p.clothingSize
+      return basicFieldsFilled && Boolean(p.clothingSize)
     })
   }
 
-  const handleSubmit = () => {
-    if (canSubmit()) {
-      // Here you would call your backend API
-      console.log("Submitting registration:", {
-        activity: selectedActivity,
-        time: selectedTime,
-        participants,
+  const handleSubmit = async () => {
+    if (!canSubmit() || !currentActivity) return
+    setSubmitting(true)
+    setError(null)
+
+    const payload = {
+      nombre_actividad: currentActivity.name,
+      horario: selectedTime,
+      participantes: participants.map((p) => ({
+        nombre: p.name,
+        dni: p.dni,
+        edad: Number(p.age),
+        talle: p.clothingSize || null,
+      })),
+      aceptar_terminos: true,
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/inscripciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null)
+        throw new Error(err?.detail || err?.mensaje || `Error ${res.status}`)
+      }
+
+      await res.json()
       setSubmitted(true)
+
+      // refresh slots for the selected activity to reflect updated cupos
+      if (selectedActivity) {
+        try {
+          const r2 = await fetch(`${API_BASE}/actividades/${selectedActivity}/horarios`)
+          if (r2.ok) {
+            const updatedSlots: ApiSlot[] = await r2.json()
+            setSlotsByActivity((prev) => ({ ...prev, [selectedActivity]: updatedSlots }))
+          }
+        } catch (e) {
+          // non-blocking: ignore refresh error but log it
+          console.error("Error refreshing slots:", e)
+        }
+      }
+    } catch (e: any) {
+      console.error(e)
+      setError(e.message || "Error al realizar la inscripción.")
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -150,6 +223,7 @@ export function ActivityRegistration() {
     setParticipants([{ name: "", dni: "", age: "", clothingSize: "" }])
     setTermsAccepted(false)
     setSubmitted(false)
+    setError(null)
   }
 
   if (submitted) {
@@ -201,15 +275,22 @@ export function ActivityRegistration() {
           <p className="text-lg text-muted-foreground">Inscripción a Actividades</p>
         </div>
 
+        {/* show global errors / loading */}
+        {loadingActivities && <p className="text-center">Cargando actividades...</p>}
+        {error && (
+          <div className="mb-4 p-3 bg-accent/10 border border-accent rounded">
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
+        )}
+
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-center gap-2">
             {[1, 2, 3].map((s) => (
               <div key={s} className="flex items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
-                    step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                    }`}
                 >
                   {s}
                 </div>
@@ -234,14 +315,13 @@ export function ActivityRegistration() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {activities.map((activity) => {
-                    const hasAvailability = activity.availableSlots.some((s) => s.available > 0)
+                  {uiActivities.map((activity) => {
+                    const hasAvailability = activity.availableSlots.some((s: any) => s.available > 0)
                     return (
                       <Card
                         key={activity.id}
-                        className={`cursor-pointer transition-all hover:shadow-md ${
-                          selectedActivity === activity.id ? "ring-2 ring-primary" : "hover:border-primary/50"
-                        } ${!hasAvailability ? "opacity-60" : ""}`}
+                        className={`cursor-pointer transition-all hover:shadow-md ${selectedActivity === activity.id ? "ring-2 ring-primary" : "hover:border-primary/50"
+                          } ${!hasAvailability ? "opacity-60" : ""}`}
                         onClick={() => hasAvailability && handleActivitySelect(activity.id)}
                       >
                         <CardHeader>
@@ -263,7 +343,9 @@ export function ActivityRegistration() {
                             </div>
                             <div className="flex items-center gap-1">
                               <Users className="w-4 h-4" />
-                              <span>{activity.availableSlots.reduce((sum, s) => sum + s.available, 0)} cupos</span>
+                              <span>
+                                {activity.availableSlots.reduce((sum: number, s: any) => sum + (s.available || 0), 0)} cupos
+                              </span>
                             </div>
                           </div>
                         </CardContent>
@@ -297,7 +379,7 @@ export function ActivityRegistration() {
                   <Label className="text-base font-semibold">Selecciona el Horario</Label>
                   <RadioGroup value={selectedTime} onValueChange={handleTimeSelect}>
                     <div className="grid gap-3 md:grid-cols-2">
-                      {currentActivity.availableSlots.map((slot) => (
+                      {currentActivity.availableSlots.map((slot: any) => (
                         <div key={slot.time} className="relative">
                           <RadioGroupItem
                             value={slot.time}
@@ -307,11 +389,8 @@ export function ActivityRegistration() {
                           />
                           <Label
                             htmlFor={slot.time}
-                            className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                              slot.available === 0
-                                ? "opacity-50 cursor-not-allowed bg-muted"
-                                : "hover:border-primary/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
-                            }`}
+                            className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${slot.available === 0 ? "opacity-50 cursor-not-allowed bg-muted" : "hover:border-primary/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
+                              }`}
                           >
                             <div className="flex items-center gap-3">
                               <Clock className="w-5 h-5 text-muted-foreground" />
@@ -344,14 +423,12 @@ export function ActivityRegistration() {
                     Cantidad de Participantes
                   </Label>
                   {selectedSlot && (
-                    <p className="text-sm text-muted-foreground">
-                      Cupos disponibles para este horario: {selectedSlot.available}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Cupos disponibles para este horario: {selectedSlot.available}</p>
                   )}
                   <Input
                     id="participant-count"
                     type="number"
-                    min="1"
+                    min={1}
                     max={selectedSlot?.available || 1}
                     value={participantCount}
                     onChange={(e) => handleParticipantCountChange(e.target.value)}
@@ -360,7 +437,7 @@ export function ActivityRegistration() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={() => setStep(3)} disabled={!canProceedToStep3} size="lg">
+                  <Button onClick={() => setStep(3)} disabled={!canProceedToStep3} size="lg" >
                     Continuar
                   </Button>
                 </div>
@@ -465,8 +542,7 @@ export function ActivityRegistration() {
                       onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
                     />
                     <Label htmlFor="terms" className="text-sm font-normal leading-relaxed cursor-pointer">
-                      Acepto los términos y condiciones específicos de la actividad{" "}
-                      <span className="text-destructive">*</span>
+                      Acepto los términos y condiciones específicos de la actividad <span className="text-destructive">*</span>
                     </Label>
                   </div>
                 </div>
@@ -481,8 +557,8 @@ export function ActivityRegistration() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSubmit} disabled={!canSubmit()} size="lg" className="min-w-[200px]">
-                    Confirmar Inscripción
+                  <Button onClick={handleSubmit} disabled={!canSubmit() || submitting} size="lg" className="min-w-[200px]">
+                    {submitting ? "Enviando..." : "Confirmar Inscripción"}
                   </Button>
                 </div>
               </CardContent>
