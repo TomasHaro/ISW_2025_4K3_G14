@@ -24,19 +24,21 @@ class DatabaseSingleton:
             self.connection = sqlite3.connect(self._db_path, timeout=30, check_same_thread=False)
             self.connection.row_factory = sqlite3.Row
             self.cursor = self.connection.cursor()
-            # Si preferís leer un archivo esquema.sql, podés hacerlo aquí. Por simplicidad, creamos tablas programáticamente.
+            # Inicializar/crear tablas y columnas necesarias
             self._initialize_database()
-            # print(f"Conexión a SQLite establecida ({self._db_path})")
         except Error as e:
             raise RuntimeError(f"Error al conectar a la base de datos: {e}")
 
     def _initialize_database(self):
         try:
+            # Creamos la tabla actividad con las columnas nuevas descripcion y terms (por defecto '')
             self.cursor.execute("""
                 CREATE TABLE IF NOT EXISTS actividad (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     nombre TEXT NOT NULL UNIQUE,
-                    requiere_talle INTEGER NOT NULL
+                    requiere_talle INTEGER NOT NULL,
+                    descripcion TEXT DEFAULT '',
+                    terms TEXT DEFAULT ''
                 )
             """)
             self.cursor.execute("""
@@ -68,9 +70,30 @@ class DatabaseSingleton:
                     FOREIGN KEY(horario_id) REFERENCES horario(id)
                 )
             """)
+            # Asegurarnos (compatibilidad) de que si la tabla actividad existía y le faltan
+            # las columnas nuevas, las agregamos con ALTER TABLE (SQLite permite ADD COLUMN).
+            self._ensure_actividad_columns()
             self.connection.commit()
         except Error as e:
             raise RuntimeError(f"Error al crear/verificar las tablas: {e}")
+
+    def _ensure_actividad_columns(self):
+        """
+        Comprueba columnas en actividad y agrega las que falten: descripcion, terms.
+        Esto permite compatibilidad con esquemas antiguos.
+        """
+        try:
+            cur = self.connection.cursor()
+            cur.execute("PRAGMA table_info(actividad)")
+            cols = [row[1] for row in cur.fetchall()]  # row: (cid, name, type, notnull, dflt_value, pk)
+            if "descripcion" not in cols:
+                cur.execute("ALTER TABLE actividad ADD COLUMN descripcion TEXT DEFAULT ''")
+            if "terms" not in cols:
+                cur.execute("ALTER TABLE actividad ADD COLUMN terms TEXT DEFAULT ''")
+        except Error:
+            # Si por alguna razón falla (p. ej. tabla no existe aún), no hacemos nada especial aquí;
+            # el CREATE TABLE anterior ya maneja la creación para DB nuevas.
+            pass
 
     # helpers
     def execute_query(self, query: str, parameters: tuple = ()):
@@ -80,6 +103,7 @@ class DatabaseSingleton:
             self.connection.commit()
             return cur
         except Error as e:
+            # re-lanzamos la excepción (podés personalizar el logging aquí)
             raise
 
     def fetch_query(self, query: str, parameters: tuple = ()):
@@ -93,6 +117,6 @@ class DatabaseSingleton:
     def close_connection(self):
         if getattr(self, "connection", None):
             self.connection.close()
-            # opcional: eliminar instancia del mapa
+            # opcional: eliminar instancia del mapa para permitir recrear la DB en memoria en tests
             if self._db_path in DatabaseSingleton._instances:
                 del DatabaseSingleton._instances[self._db_path]
