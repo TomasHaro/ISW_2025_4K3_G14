@@ -42,6 +42,11 @@ class InscripcionService:
 
         if not participantes:
             return {"exito": False, "mensaje": "Debe indicar al menos un participante."}
+        
+        dnis = [p.dni for p in participantes]
+        if len(dnis) != len(set(dnis)):
+            return {"exito": False, "mensaje": "No puede haber dos participantes con el mismo DNI en una misma inscripción."}
+
 
         for p in participantes:
             # Validaciones básicas

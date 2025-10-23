@@ -50,6 +50,23 @@ export function ActivityRegistration() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+   
+  useEffect(() => {
+    const handlePopState = () => {
+      setStep((prev) => Math.max(1, prev - 1))
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+  }, [])
+
+  useEffect(() => {
+    if (step > 1) {
+      window.history.pushState({ step }, "", `#step${step}`)
+    }
+  }, [step])
+
+
   // fetch activities on mount
   useEffect(() => {
     async function fetchActivities() {
@@ -105,6 +122,10 @@ export function ActivityRegistration() {
   const currentActivity = uiActivities.find((a) => a.id === selectedActivity)
   const selectedSlot = currentActivity?.availableSlots.find((s) => s.time === selectedTime)
 
+  const clamp = (value: number, min: number, max: number) => {
+  return Math.max(min, Math.min(max, max >= min ? value : min))}
+
+
   // select activity and fetch slots if not already loaded
   const handleActivitySelect = async (activityId: string) => {
     setSelectedActivity(activityId)
@@ -130,10 +151,29 @@ export function ActivityRegistration() {
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time)
+
+    const slot = currentActivity?.availableSlots.find((s) => s.time === time)
+    const maxAvailable = slot?.available ?? 1
+    const currentCount = Number(participantCount) || 1
+
+    if (currentCount > maxAvailable) {
+      setParticipantCount(String(maxAvailable))
+      setError(null) 
+    }
   }
 
   const handleParticipantCountChange = (count: string) => {
-    const numCount = Number.parseInt(count) || 1
+    const digits = count.replace(/\D/g, "")
+    if (digits === "") {
+      setParticipantCount("") 
+      return
+    }
+
+    let numCount = Number(digits) || 1
+
+    const maxAvailable = selectedSlot?.available ?? (currentActivity ? currentActivity.availableSlots.reduce((sum: number, s: any) => Math.max(sum, s.available || 0), 1) : 1)
+    numCount = clamp(numCount, 1, maxAvailable)
+
     setParticipantCount(String(numCount))
 
     const newParticipants = Array.from(
@@ -166,6 +206,15 @@ export function ActivityRegistration() {
     if (!canSubmit() || !currentActivity) return
     setSubmitting(true)
     setError(null)
+
+    const dnis = participants.map((p) => p.dni.trim());
+    const uniqueDnis = new Set(dnis);
+
+    if (dnis.length !== uniqueDnis.size) {
+      setError("No puede haber dos participantes con el mismo DNI.");
+      setSubmitting(false);
+      return;
+      }
 
     const payload = {
       nombre_actividad: currentActivity.name,
@@ -251,9 +300,6 @@ export function ActivityRegistration() {
                 <strong className="text-foreground">Participantes:</strong> {participants.length}
               </p>
             </div>
-            <p className="text-sm text-muted-foreground text-center">
-              Recibirás un correo de confirmación con todos los detalles de tu reserva.
-            </p>
             <Button onClick={resetForm} className="w-full">
               Realizar otra inscripción
             </Button>
@@ -428,8 +474,9 @@ export function ActivityRegistration() {
                   <Input
                     id="participant-count"
                     type="number"
+                    inputMode="numeric"
                     min={1}
-                    max={selectedSlot?.available || 1}
+                    max={selectedSlot?.available ?? 1}
                     value={participantCount}
                     onChange={(e) => handleParticipantCountChange(e.target.value)}
                     className="max-w-xs"
@@ -487,9 +534,16 @@ export function ActivityRegistration() {
                         </Label>
                         <Input
                           id={`dni-${index}`}
-                          type="number"
+                          type="text"               
+                          inputMode="numeric"       
+                          pattern="\d*"             
+                          maxLength={9}             
                           value={participant.dni}
-                          onChange={(e) => updateParticipant(index, "dni", e.target.value)}
+                          onChange={(e) => {
+                            // dejar sólo dígitos y cortar a 9
+                            const digits = e.target.value.replace(/\D/g, "").slice(0, 9)
+                            updateParticipant(index, "dni", digits)
+                          }}
                           placeholder="123456789"
                         />
                       </div>
@@ -500,8 +554,19 @@ export function ActivityRegistration() {
                         <Input
                           id={`age-${index}`}
                           type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={130}
                           value={participant.age}
-                          onChange={(e) => updateParticipant(index, "age", e.target.value)}
+                          onChange={(e) => {
+                            let value = e.target.value.replace(/\D/g, ""); 
+                            let num = Number(value);
+
+                            if (num > 130) num = 130; 
+                            if (num < 0) num = 0;     
+
+                            updateParticipant(index, "age", num.toString());
+                          }}
                           placeholder="25"
                         />
                       </div>
