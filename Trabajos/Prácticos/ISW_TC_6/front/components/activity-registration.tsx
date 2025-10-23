@@ -472,8 +472,12 @@ export function ActivityRegistration() {
                         </Label>
                         <Input
                           id={`name-${index}`}
+                          type="text"
                           value={participant.name}
-                          onChange={(e) => updateParticipant(index, "name", e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+                            updateParticipant(index, "name", value)
+                          }}
                           placeholder="Juan Pérez"
                         />
                       </div>
@@ -483,9 +487,10 @@ export function ActivityRegistration() {
                         </Label>
                         <Input
                           id={`dni-${index}`}
+                          type="number"
                           value={participant.dni}
                           onChange={(e) => updateParticipant(index, "dni", e.target.value)}
-                          placeholder="12345678"
+                          placeholder="123456789"
                         />
                       </div>
                       <div className="space-y-2">
