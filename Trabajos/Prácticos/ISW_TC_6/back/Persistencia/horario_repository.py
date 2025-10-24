@@ -2,6 +2,10 @@ from typing import Optional, Dict, List, Any
 from Persistencia.database_singleton import DatabaseSingleton
 
 class HorarioRepo:
+    """
+    Repositorio para gestionar operaciones CRUD de horarios en la base de datos.
+    Maneja la persistencia de horarios asociados a actividades.
+    """
     def __init__(self, db: DatabaseSingleton = None):
         self.db = db or DatabaseSingleton()
 
