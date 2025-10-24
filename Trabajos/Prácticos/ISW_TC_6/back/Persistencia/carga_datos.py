@@ -1,5 +1,5 @@
 # cargaDatos.py
-from databaseSingleton import DatabaseSingleton
+from Persistencia.database_singleton import DatabaseSingleton
 
 class CargaDatos:
     def __init__(self):

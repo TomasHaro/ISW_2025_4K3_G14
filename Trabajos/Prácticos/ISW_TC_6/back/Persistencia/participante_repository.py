@@ -1,5 +1,5 @@
 from typing import Optional
-from Persistencia.databaseSingleton import DatabaseSingleton
+from Persistencia.database_singleton import DatabaseSingleton
 
 class ParticipanteRepo:
     def __init__(self, db: DatabaseSingleton = None):

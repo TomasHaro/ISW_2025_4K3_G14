@@ -1,10 +1,10 @@
 from typing import List, Dict, Any
 import re
-from Persistencia.databaseSingleton import DatabaseSingleton
-from Persistencia.actividadRepository import ActividadRepo
-from Persistencia.horarioRepository import HorarioRepo
-from Persistencia.participanteRepository import ParticipanteRepo
-from Persistencia.inscripcionRepository import InscripcionRepo
+from Persistencia.database_singleton import DatabaseSingleton
+from Persistencia.actividad_repository import ActividadRepo
+from Persistencia.horario_repository import HorarioRepo
+from Persistencia.participante_repository import ParticipanteRepo
+from Persistencia.inscripcion_repository import InscripcionRepo 
 from Modelo.participante import Participante
 
 class InscripcionService:

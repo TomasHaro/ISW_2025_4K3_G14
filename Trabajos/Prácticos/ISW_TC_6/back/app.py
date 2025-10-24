@@ -3,10 +3,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from Persistencia.databaseSingleton import DatabaseSingleton
-from Persistencia.actividadRepository import ActividadRepo
-from Persistencia.horarioRepository import HorarioRepo
-from Servicio.inscripcionServicio import InscripcionService 
+from Persistencia.database_singleton import DatabaseSingleton
+from Persistencia.actividad_repository import ActividadRepo
+from Persistencia.horario_repository import HorarioRepo
+from Servicio.inscripcion_servicio import InscripcionService 
 
 app = FastAPI()  # NO usar prefix aquí
 

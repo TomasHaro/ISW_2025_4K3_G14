@@ -1,5 +1,5 @@
 from typing import Optional, Dict, List, Any
-from Persistencia.databaseSingleton import DatabaseSingleton
+from Persistencia.database_singleton import DatabaseSingleton
 
 class HorarioRepo:
     def __init__(self, db: DatabaseSingleton = None):

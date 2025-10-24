@@ -2,11 +2,11 @@ import sys, os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import unittest
-from Persistencia.databaseSingleton import DatabaseSingleton
-from Persistencia.actividadRepository import ActividadRepo
-from Persistencia.horarioRepository import HorarioRepo
-from Persistencia.inscripcionRepository import InscripcionRepo
-from Servicio.inscripcionServicio import InscripcionService
+from Persistencia.database_singleton import DatabaseSingleton
+from Persistencia.actividad_repository import ActividadRepo
+from Persistencia.horario_repository import HorarioRepo
+from Persistencia.inscripcion_repository import InscripcionRepo
+from Servicio.inscripcion_servicio import InscripcionService
 from Modelo.participante import Participante
 
 

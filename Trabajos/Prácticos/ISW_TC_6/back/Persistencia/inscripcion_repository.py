@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from Persistencia.databaseSingleton import DatabaseSingleton
+from Persistencia.database_singleton import DatabaseSingleton
 
 class InscripcionRepo:
     def __init__(self, db: DatabaseSingleton = None):

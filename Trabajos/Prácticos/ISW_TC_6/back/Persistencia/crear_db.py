@@ -1,5 +1,5 @@
-from databaseSingleton import DatabaseSingleton
-from cargaDatos import CargaDatos
+from Persistencia.database_singleton import DatabaseSingleton
+from Persistencia.carga_datos import CargaDatos
 
 # Inicializa la base de datos
 db = DatabaseSingleton()

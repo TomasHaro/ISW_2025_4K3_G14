@@ -1,4 +1,4 @@
-# Servicio/databaseSingleton.py
+# Servicio/database_singleton.py
 import sqlite3
 from sqlite3 import Error
 from typing import Optional
