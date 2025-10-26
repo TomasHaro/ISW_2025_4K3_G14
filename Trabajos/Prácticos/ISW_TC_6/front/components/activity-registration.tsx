@@ -14,6 +14,11 @@ import { Clock, Users, AlertCircle, CheckCircle2, Leaf } from "lucide-react"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api"
 
+// Edad mínima por actividad (si se necesitan más, agregá aquí)
+const MIN_AGE_BY_ACTIVITY: Record<string, number> = {
+  Tirolesa: 12,
+}
+
 type ApiActivity = {
   id: number
   nombre: string
@@ -50,10 +55,16 @@ export function ActivityRegistration() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-   
+  // --- History (back/forward) handling ---
   useEffect(() => {
-    const handlePopState = () => {
-      setStep((prev) => Math.max(1, prev - 1))
+    // ensure initial state in history
+    if (typeof window !== "undefined") {
+      window.history.replaceState({ step: 1 }, "", "#step1")
+    }
+
+    const handlePopState = (e: PopStateEvent) => {
+      const s = (e.state && (e.state as any).step) || 1
+      setStep(typeof s === "number" ? s : 1)
     }
 
     window.addEventListener("popstate", handlePopState)
@@ -61,11 +72,11 @@ export function ActivityRegistration() {
   }, [])
 
   useEffect(() => {
-    if (step > 1) {
+    // push the step into history whenever it changes (so back/forward work)
+    if (typeof window !== "undefined") {
       window.history.pushState({ step }, "", `#step${step}`)
     }
   }, [step])
-
 
   // fetch activities on mount
   useEffect(() => {
@@ -123,8 +134,8 @@ export function ActivityRegistration() {
   const selectedSlot = currentActivity?.availableSlots.find((s) => s.time === selectedTime)
 
   const clamp = (value: number, min: number, max: number) => {
-  return Math.max(min, Math.min(max, max >= min ? value : min))}
-
+    return Math.max(min, Math.min(max, max >= min ? value : min))
+  }
 
   // select activity and fetch slots if not already loaded
   const handleActivitySelect = async (activityId: string) => {
@@ -158,28 +169,27 @@ export function ActivityRegistration() {
 
     if (currentCount > maxAvailable) {
       setParticipantCount(String(maxAvailable))
-      setError(null) 
+      setError(null)
     }
   }
 
   const handleParticipantCountChange = (count: string) => {
     const digits = count.replace(/\D/g, "")
     if (digits === "") {
-      setParticipantCount("") 
+      setParticipantCount("")
       return
     }
 
     let numCount = Number(digits) || 1
 
-    const maxAvailable = selectedSlot?.available ?? (currentActivity ? currentActivity.availableSlots.reduce((sum: number, s: any) => Math.max(sum, s.available || 0), 1) : 1)
+    const maxAvailable =
+      selectedSlot?.available ??
+      (currentActivity ? currentActivity.availableSlots.reduce((sum: number, s: any) => Math.max(sum, s.available || 0), 1) : 1)
     numCount = clamp(numCount, 1, maxAvailable)
 
     setParticipantCount(String(numCount))
 
-    const newParticipants = Array.from(
-      { length: numCount },
-      (_, i) => participants[i] || { name: "", dni: "", age: "", clothingSize: "" },
-    )
+    const newParticipants = Array.from({ length: numCount }, (_, i) => participants[i] || { name: "", dni: "", age: "", clothingSize: "" })
     setParticipants(newParticipants)
   }
 
@@ -191,30 +201,60 @@ export function ActivityRegistration() {
 
   const canProceedToStep3 = !!selectedActivity && !!selectedTime && !!selectedSlot && selectedSlot.available > 0
 
+  // --- age validation helpers ---
+  const actividadMinAge = (activityName?: string) => {
+    if (!activityName) return undefined
+    return MIN_AGE_BY_ACTIVITY[activityName] ?? undefined
+  }
+
+  const existeParticipanteMenor = (): { ok: boolean; edadMin?: number } => {
+    const minAge = actividadMinAge(currentActivity?.name)
+    if (!minAge) return { ok: true }
+    const hayMenor = participants.some((p) => {
+      const edadNum = Number(p.age)
+      return Number.isFinite(edadNum) && edadNum < minAge
+    })
+    return { ok: !hayMenor, edadMin: minAge }
+  }
+
   const canSubmit = () => {
     if (!termsAccepted) return false
     if (!currentActivity) return false
 
-    return participants.every((p) => {
+    const basicOk = participants.every((p) => {
       const basicFieldsFilled = Boolean(p.name && p.dni && p.age)
       if (!currentActivity?.requiresClothingSize) return basicFieldsFilled
       return basicFieldsFilled && Boolean(p.clothingSize)
     })
+    if (!basicOk) return false
+
+    const menores = existeParticipanteMenor()
+    if (!menores.ok) return false
+
+    return true
   }
 
   const handleSubmit = async () => {
     if (!canSubmit() || !currentActivity) return
+
+    // doble verificación de edad mínima
+    const menores = existeParticipanteMenor()
+    if (!menores.ok) {
+      setError(`Al menos un participante es menor de ${menores.edadMin} años.`)
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
-    const dnis = participants.map((p) => p.dni.trim());
-    const uniqueDnis = new Set(dnis);
+    const dnis = participants.map((p) => p.dni.trim())
+    const uniqueDnis = new Set(dnis)
 
     if (dnis.length !== uniqueDnis.size) {
-      setError("No puede haber dos participantes con el mismo DNI.");
-      setSubmitting(false);
-      return;
-      }
+      setError("No puede haber dos participantes con el mismo DNI.")
+      setSubmitting(false)
+      return
+    }
 
     const payload = {
       nombre_actividad: currentActivity.name,
@@ -252,7 +292,6 @@ export function ActivityRegistration() {
             setSlotsByActivity((prev) => ({ ...prev, [selectedActivity]: updatedSlots }))
           }
         } catch (e) {
-          // non-blocking: ignore refresh error but log it
           console.error("Error refreshing slots:", e)
         }
       }
@@ -335,8 +374,9 @@ export function ActivityRegistration() {
             {[1, 2, 3].map((s) => (
               <div key={s} className="flex items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                    }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${
+                    step >= s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
                 >
                   {s}
                 </div>
@@ -366,8 +406,9 @@ export function ActivityRegistration() {
                     return (
                       <Card
                         key={activity.id}
-                        className={`cursor-pointer transition-all hover:shadow-md ${selectedActivity === activity.id ? "ring-2 ring-primary" : "hover:border-primary/50"
-                          } ${!hasAvailability ? "opacity-60" : ""}`}
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          selectedActivity === activity.id ? "ring-2 ring-primary" : "hover:border-primary/50"
+                        } ${!hasAvailability ? "opacity-60" : ""}`}
                         onClick={() => hasAvailability && handleActivitySelect(activity.id)}
                       >
                         <CardHeader>
@@ -427,16 +468,14 @@ export function ActivityRegistration() {
                     <div className="grid gap-3 md:grid-cols-2">
                       {currentActivity.availableSlots.map((slot: any) => (
                         <div key={slot.time} className="relative">
-                          <RadioGroupItem
-                            value={slot.time}
-                            id={slot.time}
-                            disabled={slot.available === 0}
-                            className="peer sr-only"
-                          />
+                          <RadioGroupItem value={slot.time} id={slot.time} disabled={slot.available === 0} className="peer sr-only" />
                           <Label
                             htmlFor={slot.time}
-                            className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${slot.available === 0 ? "opacity-50 cursor-not-allowed bg-muted" : "hover:border-primary/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
-                              }`}
+                            className={`flex items-center justify-between p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              slot.available === 0
+                                ? "opacity-50 cursor-not-allowed bg-muted"
+                                : "hover:border-primary/50 peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5"
+                            }`}
                           >
                             <div className="flex items-center gap-3">
                               <Clock className="w-5 h-5 text-muted-foreground" />
@@ -468,9 +507,7 @@ export function ActivityRegistration() {
                   <Label htmlFor="participant-count" className="text-base font-semibold">
                     Cantidad de Participantes
                   </Label>
-                  {selectedSlot && (
-                    <p className="text-sm text-muted-foreground">Cupos disponibles para este horario: {selectedSlot.available}</p>
-                  )}
+                  {selectedSlot && <p className="text-sm text-muted-foreground">Cupos disponibles para este horario: {selectedSlot.available}</p>}
                   <Input
                     id="participant-count"
                     type="number"
@@ -484,7 +521,7 @@ export function ActivityRegistration() {
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={() => setStep(3)} disabled={!canProceedToStep3} size="lg" >
+                  <Button onClick={() => setStep(3)} disabled={!canProceedToStep3} size="lg">
                     Continuar
                   </Button>
                 </div>
@@ -534,10 +571,10 @@ export function ActivityRegistration() {
                         </Label>
                         <Input
                           id={`dni-${index}`}
-                          type="text"               
-                          inputMode="numeric"       
-                          pattern="\d*"             
-                          maxLength={9}             
+                          type="text"
+                          inputMode="numeric"
+                          pattern="\d*"
+                          maxLength={9}
                           value={participant.dni}
                           onChange={(e) => {
                             // dejar sólo dígitos y cortar a 9
@@ -559,26 +596,25 @@ export function ActivityRegistration() {
                           max={130}
                           value={participant.age}
                           onChange={(e) => {
-                            let value = e.target.value.replace(/\D/g, ""); 
-                            let num = Number(value);
-
-                            if (num > 130) num = 130; 
-                            if (num < 0) num = 0;     
-
-                            updateParticipant(index, "age", num.toString());
+                            let value = e.target.value.replace(/\D/g, "")
+                            let num = Number(value)
+                            if (num > 130) num = 130
+                            if (num < 0) num = 0
+                            updateParticipant(index, "age", num.toString())
                           }}
                           placeholder="25"
                         />
+                        {/* Mensaje inline si la actividad exige edad mínima y el participante es menor */}
+                        {currentActivity?.name && actividadMinAge(currentActivity.name) && participant.age !== "" && Number(participant.age) < (actividadMinAge(currentActivity.name) || 0) && (
+                          <p className="text-sm text-destructive mt-1">Edad mínima para {currentActivity.name}: {actividadMinAge(currentActivity.name)} años.</p>
+                        )}
                       </div>
                       {currentActivity.requiresClothingSize && (
                         <div className="space-y-2">
                           <Label htmlFor={`size-${index}`}>
                             Talla de Vestimenta <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={participant.clothingSize}
-                            onValueChange={(value) => updateParticipant(index, "clothingSize", value)}
-                          >
+                          <Select value={participant.clothingSize} onValueChange={(value) => updateParticipant(index, "clothingSize", value)}>
                             <SelectTrigger id={`size-${index}`}>
                               <SelectValue placeholder="Seleccionar talla" />
                             </SelectTrigger>
@@ -606,11 +642,7 @@ export function ActivityRegistration() {
                     <p className="text-sm text-foreground leading-relaxed">{currentActivity.terms}</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <Checkbox
-                      id="terms"
-                      checked={termsAccepted}
-                      onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
-                    />
+                    <Checkbox id="terms" checked={termsAccepted} onCheckedChange={(checked) => setTermsAccepted(checked as boolean)} />
                     <Label htmlFor="terms" className="text-sm font-normal leading-relaxed cursor-pointer">
                       Acepto los términos y condiciones específicos de la actividad <span className="text-destructive">*</span>
                     </Label>
@@ -621,7 +653,7 @@ export function ActivityRegistration() {
                   <div className="flex items-start gap-2 p-3 bg-accent/10 border border-accent rounded-lg">
                     <AlertCircle className="w-5 h-5 text-accent shrink-0 mt-0.5" />
                     <p className="text-sm text-foreground">
-                      Por favor completa todos los campos requeridos y acepta los términos y condiciones para continuar.
+                      Por favor completa todos los campos requeridos, verifica edades y acepta los términos y condiciones para continuar.
                     </p>
                   </div>
                 )}
