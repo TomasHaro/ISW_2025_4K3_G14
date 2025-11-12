@@ -17,8 +17,9 @@ Este repositorio será usado por los integrantes del grupo a lo largo del cursad
 ```
 ISW_2025_4K3_G14
 ├── Material de Estudio
+│   ├── Bibliografia 
 │   ├── Guias 
-│   └── Presentaciones
+|   └── Presentaciones
 ├── Programa
 ├── Templates
 ├── Trabajos
@@ -31,6 +32,7 @@ ISW_2025_4K3_G14
 | Item        | Regla de nombrado                        | Tipo            | Ubicacion|
 |-------------|------------------------------------------|-----------------|----------|
 | Programa de Asignatura | ISW_programa_2025.pdf         | Documento       | ISW_2025_4K3_G14\Programa\
+| Bibliografia | ISW_BG_\<NombreDocumento\>.pdf  | Recurso de estudio | ISW_2025_4k3_G14\Material de estudio\Bibliografia\<TituloTema>\
 | Guias          | ISW_\<NombreDocumento\>.pdf                | Recurso de estudio       |ISW_2025_4K3_G14\Material de estudio\Guias\
 | Presentaciones | ISW_PR_\<NumeroDePresentación\>_\<Tema\>.pdf       | Recurso de estudio | ISW_2025_4K3_G14\Material de estudio\Presentaciones\
 | Templates      | ISW_Template_\<Tema\>.\<docx \| xlsx\> | Recurso de estudio |  ISW_2025_4K3_G14\Templates\
@@ -44,6 +46,8 @@ ISW_2025_4K3_G14
 | **G14**                           | Grupo número 14.                                                                                       |
 | **TP**                            | Trabajo Práctico.                                                                                      |
 | **TC**                            | Trabajo Conceptual.                                                                                    |
+| **BG**                            | Bibliografía                                                                                           |
+| **\<TituloTema>**                 | Placeholder: titulo del tema que corresponde la bibliografía                                           | 
 | **\<NombreDocumento>**            | Placeholder: nombre descriptivo del archivo.                                                           |
 | **\<NumeroDePresentación>**       | Placeholder: número correspondiente a la presentación.                                                 |
 | **\<Tema>**                       | Placeholder: tema o título corto del archivo.                                                          |
